@@ -1,18 +1,18 @@
 [package]
-name = "sqlite-brotli"
+name = "sqlite-deflate"
 version = "0.1.0"
 authors = [ "Ossi Herrala <oherrala@iki.fi>" ]
 license = "MIT"
 edition = "2021"
 
-description = "Brotli compress and decompress functions for SQLite"
-homepage = "https://github.com/sensorfu/sqlite-brotli#readme"
-repository = "https://github.com/sensorfu/sqlite-brotli"
+description = "DEFLATE compress and decompress functions for SQLite"
+homepage = "https://github.com/sensorfu/sqlite-deflate#readme"
+repository = "https://github.com/sensorfu/sqlite-deflate"
 readme = "README.md"
 
 [dependencies]
-brotli = "3"
 rusqlite = { version = "0.28", features = [ "functions" ] }
+miniz_oxide = { version = "0.6", features = [ "simd" ] }
 
 [dev-dependencies]
 quickcheck = "1"
