@@ -1,47 +1,46 @@
-use std::io::{self, Cursor};
+use std::io::{self, Write};
 
 use brotli::enc::BrotliEncoderParams;
-use rusqlite::{Connection, functions::FunctionFlags};
+use rusqlite::{functions::FunctionFlags, Connection};
 
 pub fn add_brotli_functions(db: &Connection) -> rusqlite::Result<()> {
     db.create_scalar_function(
         "brotli_compress",
         1,
         FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
-        |ctx| {
-            let value: &[u8] = ctx.get_raw(0).as_bytes()?;
-            Ok(brotli_compress(value)?)
-        }
+        |ctx| brotli_compress(ctx.get_raw(0).as_bytes()?),
     )?;
 
     db.create_scalar_function(
         "brotli_decompress",
         1,
         FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
-        |ctx| {
-            let value: &[u8] = ctx.get_raw(0).as_blob()?;
-            Ok(brotli_decompress(value)?)
-        }
+        |ctx| brotli_decompress(ctx.get_raw(0).as_bytes()?),
     )?;
 
     Ok(())
 }
 
 fn brotli_compress(input: &[u8]) -> rusqlite::Result<Vec<u8>> {
-    let mut input = Cursor::new(input);
-    let mut output = Vec::new();
-    let params = BrotliEncoderParams::default();
-    brotli::BrotliCompress(&mut input, &mut output, &params)
-        .map_err(io_error_to_rusqlite)?;
-    Ok(output)
+    let params = BrotliEncoderParams {
+        quality: 4,
+        ..Default::default()
+    };
+    let mut writer = brotli::CompressorWriter::with_params(Vec::new(), 4096, &params);
+    writer.write_all(input).map_err(io_error_to_rusqlite)?;
+    Ok(writer.into_inner())
 }
 
 fn brotli_decompress(input: &[u8]) -> rusqlite::Result<Vec<u8>> {
-    let mut input = Cursor::new(input);
-    let mut output = Vec::new();
-    brotli::BrotliDecompress(&mut input, &mut output)
-        .map_err(io_error_to_rusqlite)?;
-    Ok(output)
+    let mut writer = brotli::DecompressorWriter::new(Vec::new(), 4096);
+    writer.write_all(input).map_err(io_error_to_rusqlite)?;
+    let res = writer.into_inner().map_err(|_| {
+        io_error_to_rusqlite(io::Error::new(
+            io::ErrorKind::Interrupted,
+            "brotli decompression failed",
+        ))
+    })?;
+    Ok(res)
 }
 
 fn io_error_to_rusqlite(err: io::Error) -> rusqlite::Error {
@@ -73,7 +72,10 @@ mod tests {
         add_brotli_functions(&db)?;
 
         db.execute("CREATE TABLE brotli (bloerp);", [])?;
-        db.execute("INSERT INTO brotli VALUES(brotli_compress('aaaaaaaaa'));", [])?;
+        db.execute(
+            "INSERT INTO brotli VALUES(brotli_compress('aaaaaaaaa'));",
+            [],
+        )?;
         let bytes = db.query_row(r"SELECT brotli_decompress(bloerp) FROM brotli", [], |row| {
             let bytes: Vec<u8> = row.get(0)?;
             Ok(bytes)
