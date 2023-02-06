@@ -54,10 +54,7 @@ mod tests {
         add_deflate_functions(&db)?;
 
         db.execute("CREATE TABLE testi (bloerp);", [])?;
-        db.execute(
-            "INSERT INTO testi VALUES(deflate('aaaaaaaaa'));",
-            [],
-        )?;
+        db.execute("INSERT INTO testi VALUES(deflate('aaaaaaaaa'));", [])?;
         let bytes = db.query_row(r"SELECT inflate(bloerp) FROM testi", [], |row| {
             let bytes: Vec<u8> = row.get(0)?;
             Ok(bytes)

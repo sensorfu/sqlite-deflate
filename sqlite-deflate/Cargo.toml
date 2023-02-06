@@ -12,7 +12,7 @@ readme = "README.md"
 
 [dependencies]
 rusqlite = { version = "0.28", features = [ "functions" ] }
-miniz_oxide = { version = "0.6", features = [ "simd" ] }
+miniz_oxide = { version = "0.7", features = [ "simd" ] }
 
 [dev-dependencies]
 quickcheck = "1"
