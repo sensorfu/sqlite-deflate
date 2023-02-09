@@ -5,7 +5,7 @@ authors = [ "Ossi Herrala <oherrala@iki.fi>" ]
 license = "MIT"
 edition = "2021"
 
-description = "DEFLATE compress and decompress functions for SQLite"
+description = "A loadable extension for DEFLATE compress and decompress functions in SQLite"
 homepage = "https://github.com/sensorfu/sqlite-deflate#readme"
 repository = "https://github.com/sensorfu/sqlite-deflate"
 readme = "README.md"
@@ -16,4 +16,4 @@ crate-type = [ "cdylib" ]
 
 [dependencies]
 miniz_oxide = { version = "0.7", features = [ "simd" ] }
-sqlite-loadable = "0.0"
+sqlite3_ext = "0.1"

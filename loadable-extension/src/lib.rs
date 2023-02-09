@@ -1,34 +1,28 @@
 use miniz_oxide::deflate::compress_to_vec;
 use miniz_oxide::inflate::decompress_to_vec;
-use sqlite_loadable::prelude::*;
-use sqlite_loadable::{api, define_scalar_function, Error, Result};
 
-#[sqlite_entrypoint]
-fn sqlite3_deflate_init(db: *mut sqlite3) -> Result<()> {
-    let flags = FunctionFlags::UTF8 | FunctionFlags::DETERMINISTIC;
-    define_scalar_function(db, "deflate", 1, deflate, flags)?;
-    define_scalar_function(db, "inflate", 1, inflate, flags)?;
+use sqlite3_ext::function::Context;
+use sqlite3_ext::{
+    sqlite3_ext_fn, sqlite3_ext_main, Connection, Error, FromValue, Result, ValueRef,
+};
+
+#[sqlite3_ext_main(persistent)]
+fn init(db: &Connection) -> Result<()> {
+    db.create_scalar_function("deflate", &DEFLATE_OPTS, deflate)?;
+    db.create_scalar_function("inflate", &INFLATE_OPTS, inflate)?;
     Ok(())
 }
 
-pub fn deflate(context: *mut sqlite3_context, values: &[*mut sqlite3_value]) -> Result<()> {
-    let contents = api::value_blob(
-        values
-            .get(0)
-            .ok_or_else(|| Error::new_message("expected 1st argument as contents"))?,
-    );
-    let res = compress_to_vec(contents, 6);
-    api::result_blob(context, &res);
-    Ok(())
+#[sqlite3_ext_fn(n_args=1, risk_level=Innocuous, deterministic)]
+fn deflate(ctx: &Context, args: &mut [&mut ValueRef]) -> Result<()> {
+    let val: &[u8] = args[0].get_blob()?;
+    let res: Vec<u8> = compress_to_vec(val, 6);
+    ctx.set_result(AsRef::<[u8]>::as_ref(&res))
 }
 
-pub fn inflate(context: *mut sqlite3_context, values: &[*mut sqlite3_value]) -> Result<()> {
-    let contents = api::value_blob(
-        values
-            .get(0)
-            .ok_or_else(|| Error::new_message("expected 1st argument as contents"))?,
-    );
-    let res = decompress_to_vec(contents).map_err(|err| Error::from(err.to_string()))?;
-    api::result_blob(context, &res);
-    Ok(())
+#[sqlite3_ext_fn(n_args=1, risk_level=Innocuous, deterministic)]
+fn inflate(ctx: &Context, args: &mut [&mut ValueRef]) -> Result<()> {
+    let val: &[u8] = args[0].get_blob()?;
+    let res: Vec<u8> = decompress_to_vec(val).map_err(|err| Error::Module(err.to_string()))?;
+    ctx.set_result(AsRef::<[u8]>::as_ref(&res))
 }
